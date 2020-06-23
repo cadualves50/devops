@@ -1,4 +1,4 @@
-#Scripr de passagem via shell
+#Script de passagem via shell
 $script_mysql = <<-SCRIPT
   apt-get update && \
   apt-get install -y mysql-server-5.7 && \
@@ -9,25 +9,33 @@ SCRIPT
 #v1.0
 Vagrant.configure("2") do |config|
   config.vm.box = "ubuntu/bionic64"
-  config.vm.network "public_network"
+  config.vm.network "public_network", bridge: "wlp2s0"
 
 #Criação de máquina Ngnix
+
 config.vm.define "ngnix" do |ngnix|
   ngnix.vm.provision "shell", path: "provision.sh"
+  ngnix.vm.network "public_network", bridge: "wlp2s0"
   ngnix.vm.network "public_network", ip: "192.168.0.23"
   ngnix.vm.network "forwarded_port", guest: 80, host: 8086
+  ngnix.vm.provider "virtualbox" do |vb|
+    vb.memory = 1024
+    vb.cpus = 2
+    vb.name = "ngnix"
   end
+end
 #Criação de máquina Mysql
 
 config.vm.define "mysqldb" do |mysql|
   mysql.vm.network "public_network", ip: "192.168.0.24"
   mysql.vm.provision "shell", inline: $script_mysql
-   mysql.vm.provision "shell",
+  mysql.vm.provision "shell",
      inline: "cat /configs/mysqld.cnf > /etc/mysql/mysql.conf.d/mysqld.cnf"
-   mysql.vm.provision "shell", inline: "service mysql restart"
-   mysql.vm.synced_folder "./configs", "/configs"
-   mysql.vm.synced_folder ".", "/vagrant", disabled: true
-   end
+  mysql.vm.provision "shell", inline: "service mysql restart"
+  mysql.vm.synced_folder "./configs", "/configs"
+  mysql.vm.synced_folder ".", "/vagrant", disabled: true
+  end
+
 #Criação de máquina Php
 
   config.vm.define "phpweb" do |phpweb|
@@ -37,7 +45,11 @@ config.vm.define "mysqldb" do |mysql|
   phpweb.vm.provision "puppet" do |puppet|
     puppet.manifests_path = "./configs/manifests"
     puppet.manifest_file = "phpweb.pp"
-  end
-  end
-
+    end
+  phpweb.vm.provider "virtualbox" do |vb|
+      vb.memory = 1024
+      vb.cpus = 2
+      vb.name = "php7"  
+    end
+  end   
 end
